@@ -2,7 +2,7 @@ const axios = require("axios");
 const config = require("../config/config.json");
 const YouTubeVideo = require("../models/YouTubeVideo");
 
-let initialized = false;
+let lastVideoId = "";
 
 module.exports = async (client) => {
 
@@ -28,25 +28,15 @@ module.exports = async (client) => {
 
             if (!videos || videos.length === 0) return;
 
-            // पहली बार Bot start होने पर पुराने uploads को ignore करो
-            if (!initialized) {
-                for (const video of videos) {
-                    await YouTubeVideo.updateOne(
-                        { videoId: video.id.videoId },
-                        {
-                            videoId: video.id.videoId,
-                            type: "video"
-                        },
-                        { upsert: true }
-                    );
-                }
-
-                initialized = true;
-                console.log("YouTube notifier initialized.");
-                return;
-            }
-
             for (const video of videos) {
+
+                if (!video.id.videoId) continue;
+
+                // Bot start होने पर latest वीडियो याद रखो
+                if (!lastVideoId) {
+                    lastVideoId = video.id.videoId;
+                    continue;
+                }
 
                 const exists = await YouTubeVideo.findOne({
                     videoId: video.id.videoId
@@ -64,23 +54,25 @@ module.exports = async (client) => {
                 );
 
                 await channel.send({
-                    content: `@everyone
+                    content:
+`@everyone
 
 📢 **New Upload on GYRO LIVE YT!**
 
 🎥 https://youtu.be/${video.id.videoId}`,
+
                     allowedMentions: {
                         parse: ["everyone"]
                     }
                 });
 
                 console.log(`Notification sent: ${video.id.videoId}`);
+
+                lastVideoId = video.id.videoId;
             }
 
         } catch (err) {
-
-            console.error("YouTube API Error:", err.response?.status || err.message);
-
+            console.error(err.response?.data || err);
         }
 
     }, 60000);
