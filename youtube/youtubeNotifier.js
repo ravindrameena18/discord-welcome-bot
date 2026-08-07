@@ -18,19 +18,22 @@ module.exports = async (client) => {
                         channelId: process.env.YOUTUBE_CHANNEL_ID,
                         part: "snippet",
                         order: "date",
-                        maxResults: 1
+                        maxResults: 3,
+                        type: "video"
                     }
                 }
             );
 
-            const video = res.data.items[0];
-
-            if (!video) return;
+            const videos = res.data.items;
+            
+            if (!videos || videos.length === 0) return;
+            
+            for (const video of videos) {
 
             // Bot start होने पर latest वीडियो याद रखो
             if (!lastVideoId) {
                 lastVideoId = video.id.videoId;
-                return;
+                continue;
             }
 
             // पहले से भेजा जा चुका है?
@@ -38,7 +41,7 @@ module.exports = async (client) => {
                 videoId: video.id.videoId
             });
 
-            if (exists) return;
+            if (exists) continue;
 
             await YouTubeVideo.create({
                 videoId: video.id.videoId,
@@ -50,12 +53,12 @@ module.exports = async (client) => {
             );
 
             await channel.send({
-                content:
-`@everyone  @verified  @Unverified 
-
-📢 **New video from GYRO LIVE YT!**
-
-https://youtu.be/${video.id.videoId}`,
+                
+                content: `@everyone
+                
+                📢 **New Upload on GYRO LIVE YT!**
+                
+                🎥 https://youtu.be/${video.id.videoId}`,
 
                 allowedMentions: {
                     parse: ["everyone"]
