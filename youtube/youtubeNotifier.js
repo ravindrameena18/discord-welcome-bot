@@ -2,7 +2,7 @@ const axios = require("axios");
 const config = require("../config/config.json");
 const YouTubeVideo = require("../models/YouTubeVideo");
 
-let lastVideoId = "";
+let initialized = false;
 
 module.exports = async (client) => {
 
@@ -25,53 +25,61 @@ module.exports = async (client) => {
             );
 
             const videos = res.data.items;
-            
-            if (!videos || videos.length === 0) return;
-            
-            for (const video of videos) {
 
-            // Bot start होने पर latest वीडियो याद रखो
-            if (!lastVideoId) {
-                lastVideoId = video.id.videoId;
-                continue;
+            if (!videos || videos.length === 0) return;
+
+            // पहली बार Bot start होने पर पुराने uploads को ignore करो
+            if (!initialized) {
+                for (const video of videos) {
+                    await YouTubeVideo.updateOne(
+                        { videoId: video.id.videoId },
+                        {
+                            videoId: video.id.videoId,
+                            type: "video"
+                        },
+                        { upsert: true }
+                    );
+                }
+
+                initialized = true;
+                console.log("YouTube notifier initialized.");
+                return;
             }
 
-            // पहले से भेजा जा चुका है?
-            const exists = await YouTubeVideo.findOne({
-                videoId: video.id.videoId
-            });
+            for (const video of videos) {
 
-            if (exists) continue;
+                const exists = await YouTubeVideo.findOne({
+                    videoId: video.id.videoId
+                });
 
-            await YouTubeVideo.create({
-                videoId: video.id.videoId,
-                type: "video"
-            });
+                if (exists) continue;
 
-            const channel = await client.channels.fetch(
-                config.YOUTUBE_NOTIFICATION_CHANNEL_ID
-            );
+                await YouTubeVideo.create({
+                    videoId: video.id.videoId,
+                    type: "video"
+                });
 
-            await channel.send({
-                
-                content: `@everyone
-                
-                📢 **New Upload on GYRO LIVE YT!**
-                
-                🎥 https://youtu.be/${video.id.videoId}`,
+                const channel = await client.channels.fetch(
+                    config.YOUTUBE_NOTIFICATION_CHANNEL_ID
+                );
 
-                allowedMentions: {
-                    parse: ["everyone"]
-                }
-            });
+                await channel.send({
+                    content: `@everyone
 
-            console.log("YouTube notification sent.");
+📢 **New Upload on GYRO LIVE YT!**
 
-            lastVideoId = video.id.videoId;
+🎥 https://youtu.be/${video.id.videoId}`,
+                    allowedMentions: {
+                        parse: ["everyone"]
+                    }
+                });
+
+                console.log(`Notification sent: ${video.id.videoId}`);
+            }
 
         } catch (err) {
 
-            console.log(err.message);
+            console.error("YouTube API Error:", err.response?.status || err.message);
 
         }
 
