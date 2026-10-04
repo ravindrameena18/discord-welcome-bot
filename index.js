@@ -1,5 +1,18 @@
 require("dotenv").config();
 
+// Express HTTP Server (Required for Render Web Service port detection)
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+    res.send("Discord Bot is running!");
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🌐 Web server running on http://0.0.0.0:${PORT}`);
+});
+
 const connectDB = require("./database/mongoose");
 connectDB();
 
