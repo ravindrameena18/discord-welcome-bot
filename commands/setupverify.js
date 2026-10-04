@@ -1,9 +1,11 @@
+const path = require("path");
 const {
     SlashCommandBuilder,
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    AttachmentBuilder
 } = require("discord.js");
 
 module.exports = {
@@ -13,10 +15,14 @@ module.exports = {
 
     async execute(interaction) {
 
+        const imagePath = path.join(__dirname, "..", "verify.png");
+        const attachment = new AttachmentBuilder(imagePath, { name: "verify.png" });
+
         const embed = new EmbedBuilder()
             .setColor("Blue")
             .setTitle("✅ Verification")
-            .setDescription("Click the button below to verify yourself.");
+            .setDescription("Click the button below to verify yourself.")
+            .setImage("attachment://verify.png");
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -28,6 +34,7 @@ module.exports = {
 
         await interaction.channel.send({
             embeds: [embed],
+            files: [attachment],
             components: [row]
         });
 
