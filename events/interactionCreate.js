@@ -92,6 +92,22 @@ async function handleVerificationButton(interaction) {
         });
     }
 
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    const memberRole = await interaction.guild.roles.fetch(config.MEMBER_ROLE_ID).catch(() => null);
+    const verifiedRole = await interaction.guild.roles.fetch(config.VERIFIED_ROLE_ID).catch(() => null);
+    const unverifiedRole = await interaction.guild.roles.fetch(config.UNVERIFIED_ROLE_ID).catch(() => null);
+
+    if (!memberRole || !verifiedRole) {
+        return interaction.reply({
+            content: "❌ Verified या Member role नहीं मिला। Staff से role configuration check करवाएँ।",
+            ephemeral: true
+        });
+    }
+
+    // Basic verification happens immediately. Game/content roles still require staff approval.
+    await member.roles.add([verifiedRole, memberRole]);
+    if (unverifiedRole) await member.roles.remove(unverifiedRole);
+
     const requestId = `${interaction.guildId}-${interaction.user.id}-${Date.now()}`;
     const request = await VerificationRequest.create({
         requestId,
@@ -169,12 +185,6 @@ async function handleApprovalAction(interaction) {
     const allDecided = request.selected.every(key => getDecision(request, key));
     if (allDecided) {
         request.status = "completed";
-
-        const unverifiedRole = await interaction.guild.roles.fetch(config.UNVERIFIED_ROLE_ID).catch(() => null);
-        if (unverifiedRole) await member.roles.remove(unverifiedRole).catch(() => null);
-
-        const memberRole = await interaction.guild.roles.fetch(config.MEMBER_ROLE_ID).catch(() => null);
-        if (memberRole) await member.roles.add(memberRole).catch(() => null);
     }
 
     await request.save();
@@ -192,10 +202,9 @@ module.exports = {
         try {
             if (interaction.isStringSelectMenu() && interaction.customId === "verification_games") {
                 pendingSelections.set(selectionKey(interaction), interaction.values);
-                return interaction.reply({
-                    content: `✅ Selected: ${interaction.values.map(value => gameLabels[value]).join(", ")}`,
-                    ephemeral: true
-                });
+                // A selection alone must not create a verification response/request.
+                // The request is submitted only when the user presses the Verify button.
+                return interaction.deferUpdate();
             }
 
             if (interaction.isButton() && interaction.customId === "verify") {
