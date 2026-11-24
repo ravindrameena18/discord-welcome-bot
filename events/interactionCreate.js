@@ -200,11 +200,21 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            if (interaction.isStringSelectMenu() && interaction.customId === "verification_games") {
-                pendingSelections.set(selectionKey(interaction), interaction.values);
-                // A selection alone must not create a verification response/request.
-                // The request is submitted only when the user presses the Verify button.
-                return interaction.deferUpdate();
+            if (interaction.isButton() && interaction.customId.startsWith("verification:select:")) {
+                const category = interaction.customId.split(":")[2];
+                const selected = pendingSelections.get(selectionKey(interaction)) || [];
+                const nextSelection = selected.includes(category)
+                    ? selected.filter(value => value !== category)
+                    : [...selected, category];
+
+                pendingSelections.set(selectionKey(interaction), nextSelection);
+
+                return interaction.reply({
+                    content: nextSelection.length
+                        ? `✅ Selected: ${nextSelection.map(value => gameLabels[value]).join(", ")}\nअब नीचे Verify दबाएँ।`
+                        : "ℹ️ कोई category selected नहीं है। Verify करने के लिए कम-से-कम एक option चुनें।",
+                    ephemeral: true
+                });
             }
 
             if (interaction.isButton() && interaction.customId === "verify") {

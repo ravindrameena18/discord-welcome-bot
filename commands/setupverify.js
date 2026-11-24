@@ -5,8 +5,7 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    AttachmentBuilder,
-    StringSelectMenuBuilder
+    AttachmentBuilder
 } = require("discord.js");
 
 module.exports = {
@@ -25,21 +24,25 @@ module.exports = {
             .setDescription("Click the button below to verify yourself.")
             .setImage("attachment://verify.png");
 
-        const selectionRow = new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId("verification_games")
-                .setPlaceholder("Select the games/content you create")
-                .setMinValues(1)
-                .setMaxValues(6)
-                .addOptions(
-                    { label: "Minecraft", value: "minecraft", emoji: "⛏️" },
-                    { label: "Roblox", value: "roblox", emoji: "🧱" },
-                    { label: "BGMI", value: "bgmi", emoji: "🎯" },
-                    { label: "Valorant", value: "valorant", emoji: "🔫" },
-                    { label: "GTA", value: "gta", emoji: "🚗" },
-                    { label: "Content Creator", value: "content_creator", emoji: "🎥" }
-                )
-        );
+        const gameButtons = [
+            [
+                ["minecraft", "⛏️ Minecraft"],
+                ["roblox", "🧱 Roblox"]
+            ],
+            [
+                ["bgmi", "🎯 BGMI"],
+                ["valorant", "🔫 Valorant"]
+            ],
+            [
+                ["gta", "🚗 GTA 5"],
+                ["content_creator", "🎥 Content Creator"]
+            ]
+        ].map(buttons => new ActionRowBuilder().addComponents(
+            ...buttons.map(([value, label]) => new ButtonBuilder()
+                .setCustomId(`verification:select:${value}`)
+                .setLabel(`☐ ${label}`)
+                .setStyle(ButtonStyle.Secondary))
+        ));
 
         const verifyRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -52,7 +55,7 @@ module.exports = {
         await interaction.channel.send({
             embeds: [embed],
             files: [attachment],
-            components: [selectionRow, verifyRow]
+            components: [...gameButtons, verifyRow]
         });
 
         await interaction.reply({
