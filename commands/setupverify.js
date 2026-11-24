@@ -5,7 +5,8 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    AttachmentBuilder
+    AttachmentBuilder,
+    StringSelectMenuBuilder
 } = require("discord.js");
 
 module.exports = {
@@ -24,7 +25,23 @@ module.exports = {
             .setDescription("Click the button below to verify yourself.")
             .setImage("attachment://verify.png");
 
-        const row = new ActionRowBuilder().addComponents(
+        const selectionRow = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId("verification_games")
+                .setPlaceholder("Select the games/content you create")
+                .setMinValues(1)
+                .setMaxValues(6)
+                .addOptions(
+                    { label: "Minecraft", value: "minecraft", emoji: "⛏️" },
+                    { label: "Roblox", value: "roblox", emoji: "🧱" },
+                    { label: "BGMI", value: "bgmi", emoji: "🎯" },
+                    { label: "Valorant", value: "valorant", emoji: "🔫" },
+                    { label: "GTA", value: "gta", emoji: "🚗" },
+                    { label: "Content Creator", value: "content_creator", emoji: "🎥" }
+                )
+        );
+
+        const verifyRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId("verify")
                 .setLabel("Verify")
@@ -35,7 +52,7 @@ module.exports = {
         await interaction.channel.send({
             embeds: [embed],
             files: [attachment],
-            components: [row]
+            components: [selectionRow, verifyRow]
         });
 
         await interaction.reply({

@@ -13,7 +13,9 @@ module.exports = {
             .setDescription("Available Commands")
             .addFields(
                 { name: "/ping", value: "Check bot latency" },
-                { name: "/help", value: "Show help menu" }
+                { name: "/help", value: "Show help menu" },
+                { name: "/userinfo", value: "Show information about a user" },
+                { name: "/setupverify", value: "Send the game/content verification panel" }
             )
             .setFooter({ text: "GYRO RISHABH BOT" });
 
