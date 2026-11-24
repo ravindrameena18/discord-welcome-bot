@@ -3,7 +3,8 @@ const {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    PermissionsBitField
+    PermissionsBitField,
+    MessageFlags
 } = require("discord.js");
 const config = require("../config/config.json");
 const VerificationRequest = require("../models/VerificationRequest");
@@ -31,6 +32,51 @@ function decisionText(decision) {
 
 function getDecision(request, key) {
     return request.decisions?.get ? request.decisions.get(key) : request.decisions?.[key];
+}
+
+function isPrivateSelectionPanel(interaction) {
+    return Boolean(interaction.message?.flags?.has(MessageFlags.Ephemeral));
+}
+
+function buildSelectionComponents(selected = []) {
+    const categories = [
+        ["minecraft", "⛏️ Minecraft"],
+        ["roblox", "🧱 Roblox"],
+        ["bgmi", "🎯 BGMI"],
+        ["valorant", "🔫 Valorant"],
+        ["gta", "🚗 GTA 5"],
+        ["content_creator", "🎥 Content Creator"]
+    ];
+    const rows = [];
+
+    for (let index = 0; index < categories.length; index += 2) {
+        const row = new ActionRowBuilder();
+        for (const [key, label] of categories.slice(index, index + 2)) {
+            const isSelected = selected.includes(key);
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`verification:select:${key}`)
+                    .setLabel(`${isSelected ? "✅" : "☐"} ${label}`)
+                    .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
+            );
+        }
+        rows.push(row);
+    }
+
+    rows.push(new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId("verify")
+            .setLabel("✅ VERIFY")
+            .setStyle(ButtonStyle.Success)
+    ));
+
+    return rows;
+}
+
+function selectionPanelContent(selected) {
+    return selected.length
+        ? `✅ Selected: ${selected.map(value => gameLabels[value]).join(", ")}\n\nअब नीचे VERIFY दबाएँ।`
+        : "कम-से-कम एक option चुनें, फिर नीचे VERIFY दबाएँ।";
 }
 
 function buildApprovalComponents(request) {
@@ -84,12 +130,16 @@ function buildApprovalEmbed(request) {
 
 async function handleVerificationButton(interaction) {
     const selected = pendingSelections.get(selectionKey(interaction));
+    const privatePanel = isPrivateSelectionPanel(interaction);
 
     if (!selected?.length) {
-        return interaction.reply({
-            content: "❌ पहले ऊपर से कम-से-कम एक game या Content Creator select करें।",
-            ephemeral: true
-        });
+        const payload = {
+            content: "❌ पहले कम-से-कम एक game या Content Creator select करें।",
+            ...(privatePanel
+                ? { components: buildSelectionComponents([]) }
+                : { ephemeral: true })
+        };
+        return privatePanel ? interaction.update(payload) : interaction.reply(payload);
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id);
@@ -98,10 +148,11 @@ async function handleVerificationButton(interaction) {
     const unverifiedRole = await interaction.guild.roles.fetch(config.UNVERIFIED_ROLE_ID).catch(() => null);
 
     if (!memberRole || !verifiedRole) {
-        return interaction.reply({
+        const payload = {
             content: "❌ Verified या Member role नहीं मिला। Staff से role configuration check करवाएँ।",
-            ephemeral: true
-        });
+            ...(privatePanel ? { components: buildSelectionComponents(selected) } : { ephemeral: true })
+        };
+        return privatePanel ? interaction.update(payload) : interaction.reply(payload);
     }
 
     // Basic verification happens immediately. Game/content roles still require staff approval.
@@ -130,17 +181,19 @@ async function handleVerificationButton(interaction) {
         await request.save();
         pendingSelections.delete(selectionKey(interaction));
 
-        return interaction.reply({
+        const payload = {
             content: "✅ आपकी verification request staff approval के लिए भेज दी गई है।",
-            ephemeral: true
-        });
+            ...(privatePanel ? { components: [] } : { ephemeral: true })
+        };
+        return privatePanel ? interaction.update(payload) : interaction.reply(payload);
     } catch (error) {
         await VerificationRequest.deleteOne({ requestId });
         console.error("VERIFICATION REQUEST FAILED:", error);
-        return interaction.reply({
+        const payload = {
             content: "❌ Verification request भेजने में समस्या आई। Staff logs channel और bot permissions check करें।",
-            ephemeral: true
-        });
+            ...(privatePanel ? { components: buildSelectionComponents(selected) } : { ephemeral: true })
+        };
+        return privatePanel ? interaction.update(payload) : interaction.reply(payload);
     }
 }
 
@@ -209,12 +262,14 @@ module.exports = {
 
                 pendingSelections.set(selectionKey(interaction), nextSelection);
 
-                return interaction.reply({
-                    content: nextSelection.length
-                        ? `✅ Selected: ${nextSelection.map(value => gameLabels[value]).join(", ")}\nअब नीचे Verify दबाएँ।`
-                        : "ℹ️ कोई category selected नहीं है। Verify करने के लिए कम-से-कम एक option चुनें।",
-                    ephemeral: true
-                });
+                const response = {
+                    content: selectionPanelContent(nextSelection),
+                    components: buildSelectionComponents(nextSelection)
+                };
+
+                return isPrivateSelectionPanel(interaction)
+                    ? interaction.update(response)
+                    : interaction.reply({ ...response, ephemeral: true });
             }
 
             if (interaction.isButton() && interaction.customId === "verify") {
