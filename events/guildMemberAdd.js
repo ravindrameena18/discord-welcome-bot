@@ -115,7 +115,7 @@ We're excited to have you in our gaming community.
                 new ButtonBuilder()
                     .setLabel("✅ Verify Server")
                     .setStyle(ButtonStyle.Link)
-                    .setURL("https://discord.gg/MJ8mWUeER"),
+                    .setURL("https://discord.gg/3urNetD63r"),
 
                 new ButtonBuilder()
                     .setLabel("🎥 YouTube")
