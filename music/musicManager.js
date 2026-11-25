@@ -206,6 +206,7 @@ async function connectToVoice(interaction, queue) {
         throw new Error(`Join <#${config.MUSIC_VOICE_CHANNEL_ID}> to use the music player.`);
     }
 
+    queue.connection?.destroy();
     queue.connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: voiceChannel.guild.id,
@@ -265,7 +266,10 @@ async function playNext(queue, fromPosition = 0) {
 
 async function start(query, interaction) {
     const queue = getQueue(interaction.guildId);
-    if (!queue.connection) await connectToVoice(interaction, queue);
+    const connectionStatus = queue.connection?.state?.status;
+    if (!queue.connection || connectionStatus === VoiceConnectionStatus.Disconnected || connectionStatus === VoiceConnectionStatus.Destroyed) {
+        await connectToVoice(interaction, queue);
+    }
 
     const track = await withTimeout(
         resolveQuery(query, interaction.user.tag),
