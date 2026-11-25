@@ -2,111 +2,73 @@ const axios = require("axios");
 const config = require("../config/config.json");
 const YouTubeVideo = require("../models/YouTubeVideo");
 
-let lastVideoId = "";
+const POLL_INTERVAL_MS = 60000;
+let polling = false;
+let initialized = false;
 
-module.exports = async (client) => {
-    const initialApiKey = (process.env.YOUTUBE_API_KEY || process.env.YT_API_KEY)?.trim();
-    const initialChannelId = (process.env.YOUTUBE_CHANNEL_ID || process.env.YT_CHANNEL_ID)?.trim();
+function readFeedEntries(xml) {
+    return [...String(xml).matchAll(/<entry[\s\S]*?<\/entry>/g)].map(match => {
+        const entry = match[0];
+        const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
+        return videoId ? { videoId } : null;
+    }).filter(Boolean);
+}
 
-    if (!initialApiKey) {
-        console.warn("⚠️ [YouTube Notifier] YOUTUBE_API_KEY is not defined in environment variables. YouTube notifications will be paused.");
-    }
-    if (!initialChannelId) {
-        console.warn("⚠️ [YouTube Notifier] YOUTUBE_CHANNEL_ID is not defined in environment variables. YouTube notifications will be paused.");
-    }
+async function poll(client, channelId) {
+    if (polling) return;
+    polling = true;
 
-    setInterval(async () => {
+    try {
+        const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
+        const response = await axios.get(feedUrl, {
+            timeout: 15000,
+            headers: { "User-Agent": "GYRO RISHABH Discord Bot" }
+        });
+        const videos = readFeedEntries(response.data);
+        if (!videos.length) return;
 
-        try {
-
-            const apiKey = (process.env.YOUTUBE_API_KEY || process.env.YT_API_KEY)?.trim();
-            const channelId = (process.env.YOUTUBE_CHANNEL_ID || process.env.YT_CHANNEL_ID)?.trim();
-
-            if (!apiKey || !channelId) {
-                return;
-            }
-
-            const res = await axios.get(
-                "https://www.googleapis.com/youtube/v3/search",
-                {
-                    params: {
-                        key: apiKey,
-                        channelId: channelId,
-                        part: "snippet",
-                        order: "date",
-                        maxResults: 3,
-                        type: "video"
-                    }
-                }
-            );
-
-            const videos = res.data.items;
-
-            if (!videos || videos.length === 0) return;
-
+        // Seed existing feed items after startup; never announce old uploads as new.
+        if (!initialized) {
             for (const video of videos) {
-
-                if (!video.id || !video.id.videoId) continue;
-
-                // When bot starts, remember the latest video and prevent sending old notifications
-                if (!lastVideoId) {
-                    lastVideoId = video.id.videoId;
-                    const initialExists = await YouTubeVideo.findOne({ videoId: video.id.videoId });
-                    if (!initialExists) {
-                        await YouTubeVideo.create({
-                            videoId: video.id.videoId,
-                            type: "video"
-                        });
-                    }
-                    continue;
-                }
-
-                const exists = await YouTubeVideo.findOne({
-                    videoId: video.id.videoId
-                });
-
-                if (exists) continue;
-
-                await YouTubeVideo.create({
-                    videoId: video.id.videoId,
-                    type: "video"
-                });
-
-                const channel = await client.channels.fetch(
-                    config.YOUTUBE_NOTIFICATION_CHANNEL_ID
+                await YouTubeVideo.updateOne(
+                    { videoId: video.videoId },
+                    { $setOnInsert: { videoId: video.videoId, type: "video" } },
+                    { upsert: true }
                 );
-
-                if (channel) {
-                    await channel.send({
-                        content:
-`@everyone
-
-📢 **New Upload on GYRO LIVE YT!**
-
-🎥 https://youtu.be/${video.id.videoId}`,
-
-                        allowedMentions: {
-                            parse: ["everyone"]
-                        }
-                    });
-
-                    console.log(`Notification sent: ${video.id.videoId}`);
-                }
-
-                lastVideoId = video.id.videoId;
             }
-
-        } catch (err) {
-            if (err.response?.status === 403) {
-                console.error(
-                    "❌ [YouTube Notifier 403 Error]:",
-                    err.response?.data?.error?.message || "Permission denied. Ensure YOUTUBE_API_KEY is properly set in Render environment variables and YouTube Data API v3 is enabled."
-                );
-            } else {
-                console.error("❌ [YouTube Notifier Error]:", err.response?.data || err.message || err);
-            }
+            initialized = true;
+            console.log("✅ [YouTube Notifier] RSS feed initialized without API quota.");
+            return;
         }
 
-    }, 60000);
+        for (const video of videos.reverse()) {
+            const exists = await YouTubeVideo.findOne({ videoId: video.videoId });
+            if (exists) continue;
 
+            await YouTubeVideo.create({ videoId: video.videoId, type: "video" });
+            const channel = await client.channels.fetch(config.YOUTUBE_NOTIFICATION_CHANNEL_ID).catch(() => null);
+            if (channel) {
+                await channel.send({
+                    content: `@everyone\n\n📢 **New Upload on GYRO LIVE YT!**\n\n🎥 https://youtu.be/${video.videoId}`,
+                    allowedMentions: { parse: ["everyone"] }
+                });
+                console.log(`✅ [YouTube Notifier] Notification sent: ${video.videoId}`);
+            }
+        }
+    } catch (error) {
+        console.error("❌ [YouTube Notifier RSS Error]:", error.response?.status || error.message || error);
+    } finally {
+        polling = false;
+    }
+}
+
+module.exports = async (client) => {
+    const channelId = (process.env.YOUTUBE_CHANNEL_ID || process.env.YT_CHANNEL_ID)?.trim();
+    if (!channelId) {
+        console.warn("⚠️ [YouTube Notifier] YOUTUBE_CHANNEL_ID is not defined. Notifications are paused.");
+        return;
+    }
+
+    await poll(client, channelId);
+    setInterval(() => poll(client, channelId), POLL_INTERVAL_MS);
 };
