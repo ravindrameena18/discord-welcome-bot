@@ -76,14 +76,14 @@ function buildSelectionComponents(selected = []) {
 }
 
 function selectionPanelContent(selected) {
-    return "अपनी सभी categories चुनें। चुने हुए options green दिखेंगे।\n\nचयन पूरा होने के बाद ही VERIFY दबाएँ।";
+    return "Select all your categories. Selected options will turn green.\n\nPress VERIFY only when your selection is complete.";
 }
 
 function privateVerificationEmbed() {
     return new EmbedBuilder()
         .setColor("Green")
         .setTitle("✅ SERVER VERIFICATION")
-        .setDescription("अपनी games या creator category चुनें, फिर VERIFY दबाएँ।")
+        .setDescription("Select your games or creator category, then press VERIFY.")
         .setImage("attachment://verify.png");
 }
 
@@ -142,7 +142,7 @@ async function handleVerificationButton(interaction) {
 
     if (!selected?.length) {
         const payload = {
-            content: "❌ पहले कम-से-कम एक game या Content Creator select करें।",
+            content: "❌ Please select at least one game or Content Creator category first.",
             ...(privatePanel
                 ? { components: buildSelectionComponents([]) }
                 : { ephemeral: true })
@@ -157,7 +157,7 @@ async function handleVerificationButton(interaction) {
 
     if (!memberRole || !verifiedRole) {
         const payload = {
-            content: "❌ Verified या Member role नहीं मिला। Staff से role configuration check करवाएँ।",
+            content: "❌ The Verified or Member role was not found. Please ask staff to check the role configuration.",
             ...(privatePanel ? { components: buildSelectionComponents(selected) } : { ephemeral: true })
         };
         return privatePanel ? interaction.update(payload) : interaction.reply(payload);
@@ -190,7 +190,7 @@ async function handleVerificationButton(interaction) {
         pendingSelections.delete(selectionKey(interaction));
 
         const payload = {
-            content: "✅ आपकी verification request staff approval के लिए भेज दी गई है।",
+            content: "✅ Your verification request has been sent for staff approval.",
             ...(privatePanel ? { components: [] } : { ephemeral: true })
         };
         return privatePanel ? interaction.update(payload) : interaction.reply(payload);
@@ -198,7 +198,7 @@ async function handleVerificationButton(interaction) {
         await VerificationRequest.deleteOne({ requestId });
         console.error("VERIFICATION REQUEST FAILED:", error);
         const payload = {
-            content: "❌ Verification request भेजने में समस्या आई। Staff logs channel और bot permissions check करें।",
+            content: "❌ There was a problem sending the verification request. Please check the staff logs channel and bot permissions.",
             ...(privatePanel ? { components: buildSelectionComponents(selected) } : { ephemeral: true })
         };
         return privatePanel ? interaction.update(payload) : interaction.reply(payload);
@@ -208,7 +208,7 @@ async function handleVerificationButton(interaction) {
 async function handleApprovalAction(interaction) {
     if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageRoles)) {
         return interaction.reply({
-            content: "❌ केवल Manage Roles permission वाले staff members approval कर सकते हैं।",
+            content: "❌ Only staff members with the Manage Roles permission can approve requests.",
             ephemeral: true
         });
     }
@@ -217,22 +217,22 @@ async function handleApprovalAction(interaction) {
     const request = await VerificationRequest.findOne({ requestId });
 
     if (!request || !request.selected.includes(category)) {
-        return interaction.reply({ content: "❌ यह verification request नहीं मिली।", ephemeral: true });
+        return interaction.reply({ content: "❌ This verification request could not be found.", ephemeral: true });
     }
 
     if (getDecision(request, category)) {
-        return interaction.reply({ content: "⚠️ इस category पर पहले ही decision लिया जा चुका है।", ephemeral: true });
+        return interaction.reply({ content: "⚠️ A decision has already been made for this category.", ephemeral: true });
     }
 
     const member = await interaction.guild.members.fetch(request.userId).catch(() => null);
     if (!member) {
-        return interaction.reply({ content: "❌ यह member अब server में मौजूद नहीं है।", ephemeral: true });
+        return interaction.reply({ content: "❌ This member is no longer in the server.", ephemeral: true });
     }
 
     const roleId = config.VERIFICATION_ROLE_IDS[category];
     const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
     if (!role) {
-        return interaction.reply({ content: `❌ ${gameLabels[category]} role नहीं मिला।`, ephemeral: true });
+        return interaction.reply({ content: `❌ The ${gameLabels[category]} role was not found.`, ephemeral: true });
     }
 
     if (action === "approve") {
@@ -300,7 +300,7 @@ module.exports = {
             }
         } catch (err) {
             console.error("INTERACTION ERROR:", err);
-            const message = "❌ इस interaction को process करने में समस्या आई।";
+            const message = "❌ There was a problem processing this interaction.";
 
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: message, ephemeral: true }).catch(() => null);
