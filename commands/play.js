@@ -1,6 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
 const musicManager = require("../music/musicManager");
-const musicConfig = require("../config/music.json");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -12,13 +11,6 @@ module.exports = {
             .setRequired(true)),
 
     async execute(interaction) {
-        if (interaction.channelId !== musicConfig.MUSIC_TEXT_CHANNEL_ID) {
-            return interaction.reply({
-                content: `❌ Use this command in <#${musicConfig.MUSIC_TEXT_CHANNEL_ID}>.`,
-                ephemeral: true
-            });
-        }
-
         const query = interaction.options.getString("query")?.trim();
         if (!query) {
             return interaction.reply({
