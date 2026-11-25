@@ -19,6 +19,21 @@ const ytSearch = require("yt-search");
 const config = require("../config/music.json");
 
 const queues = new Map();
+let soundCloudAuthPromise = null;
+
+async function ensureSoundCloudAuth() {
+    if (!soundCloudAuthPromise) {
+        soundCloudAuthPromise = (async () => {
+            const configuredClientId = process.env.SOUNDCLOUD_CLIENT_ID?.trim();
+            const clientId = configuredClientId || await play.getFreeClientID();
+            play.setToken({ soundcloud: { client_id: clientId } });
+        })().catch(error => {
+            soundCloudAuthPromise = null;
+            throw error;
+        });
+    }
+    return withTimeout(soundCloudAuthPromise, 10_000, "SoundCloud authorization timed out.");
+}
 
 function withTimeout(promise, milliseconds, message) {
     return Promise.race([
@@ -155,6 +170,15 @@ async function resolveQuery(query, requester) {
         }
     }
 
+    if (isUrl && /soundcloud\.com/i.test(cleanQuery)) {
+        await ensureSoundCloudAuth();
+        return normalizeTrack({
+            title: cleanQuery.split("/").filter(Boolean).pop()?.split("?")[0] || "SoundCloud track",
+            url: cleanQuery,
+            durationInSec: 0
+        }, requester);
+    }
+
     if (isUrl && !/spotify\.com/i.test(cleanQuery)) {
         const info = await withTimeout(
             play.video_info(cleanQuery).catch(() => null),
@@ -173,6 +197,7 @@ async function resolveQuery(query, requester) {
 
     // Prefer SoundCloud for name searches because YouTube playback may rate-limit Render.
     try {
+        await ensureSoundCloudAuth();
         const soundCloudResults = await withTimeout(
             play.search(searchQuery, { limit: 1, source: { soundcloud: "track" } }),
             12_000,
@@ -218,6 +243,9 @@ async function connectToVoice(interaction, queue) {
 }
 
 async function createStream(track, position = 0) {
+    if (/soundcloud\.com/i.test(track.url)) {
+        await ensureSoundCloudAuth();
+    }
     let stream;
     try {
         stream = await play.stream(track.url, {
