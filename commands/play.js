@@ -19,9 +19,17 @@ module.exports = {
             });
         }
 
+        const query = interaction.options.getString("query")?.trim();
+        if (!query) {
+            return interaction.reply({
+                content: "❌ Enter a song name or URL after `/play`.",
+                ephemeral: true
+            });
+        }
+
         await interaction.deferReply();
         try {
-            await musicManager.start(interaction.options.getString("query"), interaction);
+            await musicManager.start(query, interaction);
             await interaction.editReply("✅ Added to the music player.");
         } catch (error) {
             console.error("PLAY COMMAND ERROR:", error);

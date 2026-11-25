@@ -130,12 +130,15 @@ function normalizeTrack(result, requester) {
 }
 
 async function resolveQuery(query, requester) {
-    const isUrl = /^https?:\/\//i.test(query);
-    let searchQuery = query;
+    const cleanQuery = typeof query === "string" ? query.trim() : "";
+    if (!cleanQuery) throw new Error("Enter a song name or a valid YouTube, SoundCloud or Spotify URL.");
 
-    if (isUrl && /spotify\.com/i.test(query)) {
+    const isUrl = /^https?:\/\//i.test(cleanQuery);
+    let searchQuery = cleanQuery;
+
+    if (isUrl && /spotify\.com/i.test(cleanQuery)) {
         try {
-            const data = await spotifyUrlInfo.getData(query);
+            const data = await spotifyUrlInfo.getData(cleanQuery);
             const artist = data.artists?.map(artist => artist.name).join(", ") || data.artist || "";
             searchQuery = `${data.name || data.title || ""} ${artist}`.trim();
         } catch (error) {
@@ -143,12 +146,12 @@ async function resolveQuery(query, requester) {
         }
     }
 
-    if (isUrl && !/spotify\.com/i.test(query)) {
-        const info = await play.video_info(query).catch(() => null);
+    if (isUrl && !/spotify\.com/i.test(cleanQuery)) {
+        const info = await play.video_info(cleanQuery).catch(() => null);
         if (info?.video_details) {
             return normalizeTrack({
                 title: info.video_details.title,
-                url: query,
+                url: cleanQuery,
                 durationInSec: info.video_details.durationInSec,
                 thumbnail: info.video_details.thumbnails?.[0]?.url
             }, requester);

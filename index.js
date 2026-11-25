@@ -55,6 +55,11 @@ for (const file of eventFiles) {
     }
 }
 
+// Keep guild slash commands in sync after every deployment/restart.
+if (process.env.AUTO_DEPLOY_COMMANDS !== "false") {
+    require("./deploy-commands");
+}
+
 // YouTube Notifier
 const youtubeNotifier = require("./youtube/youtubeNotifier");
 
