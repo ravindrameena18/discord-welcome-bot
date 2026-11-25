@@ -1,5 +1,9 @@
 require("dotenv").config();
 
+process.on("unhandledRejection", error => {
+    console.error("UNHANDLED PROMISE REJECTION:", error);
+});
+
 // Express HTTP Server (Required for Render Web Service port detection)
 const express = require("express");
 const app = express();

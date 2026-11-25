@@ -57,10 +57,12 @@ function getQueue(guildId) {
             pausedAt: 0
         };
 
-        player.on(AudioPlayerStatus.Idle, () => playNext(queue));
+        player.on(AudioPlayerStatus.Idle, () => {
+            playNext(queue).catch(error => console.error("MUSIC NEXT-TRACK ERROR:", error));
+        });
         player.on("error", error => {
             console.error("MUSIC PLAYER ERROR:", error);
-            playNext(queue);
+            playNext(queue).catch(nextError => console.error("MUSIC RECOVERY ERROR:", nextError));
         });
         queues.set(guildId, queue);
     }
@@ -201,11 +203,19 @@ async function connectToVoice(interaction, queue) {
 }
 
 async function createStream(track, position = 0) {
-    const stream = await play.stream(track.url, {
-        quality: 2,
-        discordPlayerCompatibility: true,
-        seek: Math.max(0, position)
-    });
+    let stream;
+    try {
+        stream = await play.stream(track.url, {
+            quality: 2,
+            discordPlayerCompatibility: true,
+            seek: Math.max(0, position)
+        });
+    } catch (error) {
+        if (error?.statusCode === 429 || /429|too many requests/i.test(error?.message || "")) {
+            throw new Error("YouTube is temporarily rate-limiting playback. Try a SoundCloud link or wait a few minutes.");
+        }
+        throw error;
+    }
     return createAudioResource(stream.stream, {
         inputType: stream.type || StreamType.Arbitrary,
         inlineVolume: true
@@ -234,7 +244,8 @@ async function playNext(queue, fromPosition = 0) {
     } catch (error) {
         console.error("MUSIC STREAM ERROR:", error);
         queue.current = null;
-        await playNext(queue);
+        await updatePanel(queue);
+        throw error;
     }
 }
 
