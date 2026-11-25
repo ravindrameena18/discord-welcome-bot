@@ -20,6 +20,13 @@ const config = require("../config/music.json");
 
 const queues = new Map();
 
+function withTimeout(promise, milliseconds, message) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(message)), milliseconds))
+    ]);
+}
+
 const buttonLabels = {
     back: "⏪ 10s",
     pause: "⏸️ Pause",
@@ -147,7 +154,11 @@ async function resolveQuery(query, requester) {
     }
 
     if (isUrl && !/spotify\.com/i.test(cleanQuery)) {
-        const info = await play.video_info(cleanQuery).catch(() => null);
+        const info = await withTimeout(
+            play.video_info(cleanQuery).catch(() => null),
+            12_000,
+            "The music link took too long to resolve. Try a song name instead."
+        );
         if (info?.video_details) {
             return normalizeTrack({
                 title: info.video_details.title,
@@ -158,9 +169,18 @@ async function resolveQuery(query, requester) {
         }
     }
 
-    const results = await play.search(searchQuery, { limit: 1, source: { youtube: "video" } });
+    const results = await withTimeout(
+        ytSearch(searchQuery).then(result => result.videos?.slice(0, 1) || []),
+        12_000,
+        "Music search timed out. Try again or use a direct YouTube URL."
+    );
     if (!results.length) throw new Error("No playable track found.");
-    return normalizeTrack(results[0], requester);
+    return normalizeTrack({
+        title: results[0].title,
+        url: results[0].url,
+        durationInSec: results[0].seconds,
+        thumbnail: results[0].thumbnail
+    }, requester);
 }
 
 async function connectToVoice(interaction, queue) {
@@ -222,7 +242,11 @@ async function start(query, interaction) {
     const queue = getQueue(interaction.guildId);
     if (!queue.connection) await connectToVoice(interaction, queue);
 
-    const track = await resolveQuery(query, interaction.user.tag);
+    const track = await withTimeout(
+        resolveQuery(query, interaction.user.tag),
+        18_000,
+        "Music search took too long. Please try again."
+    );
     queue.tracks.push(track);
     if (!queue.current) await playNext(queue);
 
