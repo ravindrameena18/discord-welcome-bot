@@ -10,6 +10,7 @@ const {
 const path = require("path");
 const config = require("../config/config.json");
 const VerificationRequest = require("../models/VerificationRequest");
+const musicManager = require("../music/musicManager");
 
 const gameLabels = {
     minecraft: "Minecraft",
@@ -291,6 +292,10 @@ module.exports = {
 
             if (interaction.isButton() && interaction.customId.startsWith("verification:")) {
                 return handleApprovalAction(interaction);
+            }
+
+            if (interaction.isButton() && interaction.customId.startsWith("music:")) {
+                return musicManager.handleButton(interaction);
             }
 
             if (interaction.isChatInputCommand()) {
