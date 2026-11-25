@@ -171,10 +171,24 @@ async function resolveQuery(query, requester) {
         }
     }
 
+    // Prefer SoundCloud for name searches because YouTube playback may rate-limit Render.
+    try {
+        const soundCloudResults = await withTimeout(
+            play.search(searchQuery, { limit: 1, source: { soundcloud: "track" } }),
+            12_000,
+            "SoundCloud search timed out."
+        );
+        if (soundCloudResults.length) {
+            return normalizeTrack(soundCloudResults[0], requester);
+        }
+    } catch (error) {
+        console.warn("SOUNDCLOUD SEARCH FALLBACK:", error.message);
+    }
+
     const results = await withTimeout(
         ytSearch(searchQuery).then(result => result.videos?.slice(0, 1) || []),
         12_000,
-        "Music search timed out. Try again or use a direct YouTube URL."
+        "Music search timed out. Try again or use a direct SoundCloud URL."
     );
     if (!results.length) throw new Error("No playable track found.");
     return normalizeTrack({
