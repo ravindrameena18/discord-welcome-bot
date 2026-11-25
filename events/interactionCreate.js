@@ -74,9 +74,7 @@ function buildSelectionComponents(selected = []) {
 }
 
 function selectionPanelContent(selected) {
-    return selected.length
-        ? `✅ Selected: ${selected.map(value => gameLabels[value]).join(", ")}\n\nअब नीचे VERIFY दबाएँ।`
-        : "कम-से-कम एक option चुनें, फिर नीचे VERIFY दबाएँ।";
+    return "अपनी सभी categories चुनें। चुने हुए options green दिखेंगे।\n\nचयन पूरा होने के बाद ही VERIFY दबाएँ।";
 }
 
 function buildApprovalComponents(request) {
