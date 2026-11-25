@@ -4,8 +4,10 @@ const {
     ButtonBuilder,
     ButtonStyle,
     PermissionsBitField,
-    MessageFlags
+    MessageFlags,
+    AttachmentBuilder
 } = require("discord.js");
+const path = require("path");
 const config = require("../config/config.json");
 const VerificationRequest = require("../models/VerificationRequest");
 
@@ -75,6 +77,14 @@ function buildSelectionComponents(selected = []) {
 
 function selectionPanelContent(selected) {
     return "अपनी सभी categories चुनें। चुने हुए options green दिखेंगे।\n\nचयन पूरा होने के बाद ही VERIFY दबाएँ।";
+}
+
+function privateVerificationEmbed() {
+    return new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("✅ SERVER VERIFICATION")
+        .setDescription("अपनी games या creator category चुनें, फिर VERIFY दबाएँ।")
+        .setImage("attachment://verify.png");
 }
 
 function buildApprovalComponents(request) {
@@ -267,7 +277,12 @@ module.exports = {
 
                 return isPrivateSelectionPanel(interaction)
                     ? interaction.update(response)
-                    : interaction.reply({ ...response, ephemeral: true });
+                    : interaction.reply({
+                        ...response,
+                        embeds: [privateVerificationEmbed()],
+                        files: [new AttachmentBuilder(path.join(__dirname, "..", "verify.png"), { name: "verify.png" })],
+                        ephemeral: true
+                    });
             }
 
             if (interaction.isButton() && interaction.customId === "verify") {
