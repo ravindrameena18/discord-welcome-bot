@@ -15,9 +15,7 @@ module.exports = {
                 { name: "/ping", value: "Check bot latency" },
                 { name: "/help", value: "Show help menu" },
                 { name: "/userinfo", value: "Show information about a user" },
-                { name: "/setupverify", value: "Send the game/content verification panel" },
-                { name: "/play", value: "Play a YouTube, SoundCloud or Spotify search/link in voice" },
-                { name: "/music", value: "Show the music control panel" }
+                { name: "/setupverify", value: "Send the game/content verification panel" }
             )
             .setFooter({ text: "GYRO RISHABH BOT" });
 

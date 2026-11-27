@@ -25,7 +25,6 @@ This document tracks all project milestones, completed implementations, active i
     - `GatewayIntentBits.GuildMessages`
     - `GatewayIntentBits.MessageContent`
     - `GatewayIntentBits.GuildMembers` (privileged)
-    - `GatewayIntentBits.GuildVoiceStates`
   - Initialized dynamic slash command loader (`commands/`).
   - Initialized dynamic event listener loader (`events/`).
 

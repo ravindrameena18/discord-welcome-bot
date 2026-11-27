@@ -51,7 +51,7 @@ flowchart TD
 The bot begins execution in `index.js`:
 1. **Environment Configuration:** Reads `.env` via `dotenv.config()`.
 2. **Database Initialization:** Invokes `connectDB()` from `database/mongoose.js` to establish an asynchronous connection to MongoDB Atlas.
-3. **Discord Client Instantiation:** Instantiates `Client` with required `GatewayIntentBits` (`Guilds`, `GuildMessages`, `MessageContent`, `GuildMembers`, `GuildVoiceStates`).
+3. **Discord Client Instantiation:** Instantiates `Client` with required `GatewayIntentBits` (`Guilds`, `GuildMessages`, `MessageContent`, `GuildMembers`).
 4. **Command Autoloading:** Reads all `.js` files from `commands/` and stores them in a `client.commands` Map/Collection.
 5. **Event Autoloading:** Reads all `.js` files from `events/` and binds them to `client.on(...)` or `client.once(...)` based on the exported `event.once` flag.
 6. **Ready Listener & YouTube Service:** Attaches a `clientReady` listener that triggers `youtubeNotifier(client)`.
